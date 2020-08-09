@@ -263,51 +263,40 @@ error:
 }
 
 /* compare two clients */
-static int clientcmp(const void *p, const void *q)
+static int
+clientcmp(const void *p, const void *q)
 {
 	struct Client *a, *b;
 	a = (struct Client *)p;
 	b = (struct Client *)q;
 
 	switch (dir) {
-	case Left:
+	case Left: case Right:
 		if (a->y == focused.y && b->y != focused.y)
 			return -1;
 		if (a->y != focused.y && b->y == focused.y)
 			return +1;
 		if (a->x > b->x)
-			return -1;
+			return (dir == Left) ? -1 : +1;
 		if (a->x < b->x)
+			return (dir == Left) ? +1 : -1;
+		if (abs(a->y - focused.y) < abs(b->y - focused.y))
+			return -1;
+		if (abs(a->y - focused.y) > abs(b->y - focused.y))
 			return +1;
 		break;
-	case Right:
-		if (a->y == focused.y && b->y != focused.y)
-			return -1;
-		if (a->y != focused.y && b->y == focused.y)
-			return +1;
-		if (a->x < b->x)
-			return -1;
-		if (a->x > b->x)
-			return +1;
-		break;
-	case Up:
+	case Up: case Down:
 		if (a->x == focused.x && b->x != focused.x)
 			return -1;
 		if (a->x != focused.x && b->x == focused.x)
 			return +1;
 		if (a->y > b->y)
-			return -1;
+			return (dir == Up) ? -1 : +1;
 		if (a->y < b->y)
-			return +1;
-		break;
-	case Down:
-		if (a->x == focused.x && b->x != focused.x)
+			return (dir == Up) ? +1 : -1;
+		if (abs(a->x - focused.x) < abs(b->x - focused.x))
 			return -1;
-		if (a->x != focused.x && b->x == focused.x)
-			return +1;
-		if (a->y < b->y)
-			return -1;
-		if (a->y > b->y)
+		if (abs(a->x - focused.x) > abs(b->x - focused.x))
 			return +1;
 		break;
 	}
