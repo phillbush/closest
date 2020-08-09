@@ -101,7 +101,7 @@ checksupportewmh(void)
 		for (i = 0; i < len; i++)
 			if (atoms[i] == netactivewindow)
 				retval = 1;
-		free(p);
+		XFree(p);
 	}
 
 	return retval;
