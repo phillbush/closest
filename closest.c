@@ -98,12 +98,15 @@ checksupportewmh(void)
 	                       False, XA_ATOM, &da, &di, &len, &dl, &p) ==
 	                       Success && p) {
 		atoms = (Atom *)p;
-		for (i = 0; i < len; i++)
-			if (atoms[i] == netactivewindow)
+		for (i = 0; i < len; i++) {
+			if (atoms[i] == netactivewindow) {
 				retval = 1;
+				break;
+			}
+		}
 		XFree(p);
 	}
-
+ 
 	return retval;
 }
 
@@ -130,20 +133,33 @@ getfocusclient(void)
 	struct Client client;
 	XWindowAttributes wa;
 	Window win, focuswin = None, parentwin = None;
+	Atom da;            /* dummy variable */
 	Window dw, *dws;    /* dummy variable */
 	int di;             /* dummy variable */
 	unsigned du;        /* dummy variable */
+	unsigned long dl;   /* dummy variable */
+	unsigned char *u;   /* dummy variable */
 
 	XGetInputFocus(dpy, &win, &di);
 
 	if (win == root || win == None)
 		goto error;
 
-	while (parentwin != root) {
-		if (XQueryTree(dpy, win, &dw, &parentwin, &dws, &du) && dws)
-			XFree(dws);
-		focuswin = win;
-		win = parentwin;
+	if (supportewmh &&
+	    XGetWindowProperty(dpy, root, netactivewindow, 0, 1024, False,
+	                       XA_WINDOW, &da, &di, &dl, &dl, &u) ==
+	                       Success && u) {
+		focuswin = *(Window *)u;
+		XFree(u);
+	}
+
+	if (focuswin == None) {
+		while (parentwin != root) {
+			if (XQueryTree(dpy, win, &dw, &parentwin, &dws, &du) && dws)
+				XFree(dws);
+			focuswin = win;
+			win = parentwin;
+		}
 	}
 
 	if (focuswin == None)
