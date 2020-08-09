@@ -27,7 +27,7 @@ The files are:
 
 First, edit `./config.mk` to match your local setup.
 
-In order to build **closest** you need the `Xlib` and `Xinerame` header files.
+In order to build **closest** you need the `Xlib` and `Xinerama` header files.
 Enter the following command to build **closest**.  This command
 creates the binary file `./closest`.
 
