@@ -276,9 +276,9 @@ clientcmp(const void *p, const void *q)
 			return -1;
 		if (a->y != focused.y && b->y == focused.y)
 			return +1;
-		if (a->x > b->x)
+		if (a->x > b->x + b->w)
 			return (dir == Left) ? -1 : +1;
-		if (a->x < b->x)
+		if (a->x + a->w < b->x)
 			return (dir == Left) ? +1 : -1;
 		if (abs(a->y - focused.y) < abs(b->y - focused.y))
 			return -1;
@@ -290,9 +290,9 @@ clientcmp(const void *p, const void *q)
 			return -1;
 		if (a->x != focused.x && b->x == focused.x)
 			return +1;
-		if (a->y > b->y)
+		if (a->y > b->y + b->h)
 			return (dir == Up) ? -1 : +1;
-		if (a->y < b->y)
+		if (a->y + a->h < b->y)
 			return (dir == Up) ? +1 : -1;
 		if (abs(a->x - focused.x) < abs(b->x - focused.x))
 			return -1;
