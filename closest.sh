@@ -27,7 +27,7 @@ getwid() {
 	case $1 in
 	left)
 		ATTR="xyi"
-		POS="$POSX"
+		FOCUSPOS="$POSX"
 		ALIGN="$POSY"
 		MONPOS="$MONX"
 		MONSIZ="$MONW"
@@ -37,7 +37,7 @@ getwid() {
 		;;
 	down)
 		ATTR="yxi"
-		POS="$POSY"
+		FOCUSPOS="$POSY"
 		ALIGN="$POSX"
 		MONPOS="$MONY"
 		MONSIZ="$MONH"
@@ -47,7 +47,7 @@ getwid() {
 		;;
 	up)
 		ATTR="yxi"
-		POS="$POSY"
+		FOCUSPOS="$POSY"
 		ALIGN="$POSX"
 		MONPOS="$MONY"
 		MONSIZ="$MONH"
@@ -57,7 +57,7 @@ getwid() {
 		;;
 	right)
 		ATTR="xyi"
-		POS="$POSX"
+		FOCUSPOS="$POSX"
 		ALIGN="$POSY"
 		MONPOS="$MONX"
 		MONSIZ="$MONW"
@@ -74,9 +74,9 @@ getwid() {
 	# and our third attribute will be the window id (thus xyi).  If we
 	# are focusing in the y direction, our attributes will be yxi.
 	#
-	# $POS is the position of the focused window in the direction we
-	# want to focus.  So if we want to focus left/right, $POS will be
-	# equal to $POSX, and if we want to focus up/down, $POS will be
+	# $FOCUSPOS is the position of the focused window in the direction we
+	# want to focus.  So if we want to focus left/right, $FOCUSPOS will be
+	# equal to $POSX, and if we want to focus up/down, $FOCUSPOS will be
 	# equal to $POSY.
 	#
 	# $ALIGN is the position other than $POS.
@@ -92,59 +92,44 @@ getwid() {
 
 	lsw |\
 	xargs wattr "$ATTR" |\
-	awk -v POS="$POS" \
+	awk -v FOCUSPOS="$FOCUSPOS" \
 	    -v ALIGN="$ALIGN" \
 	    -v MONPOS="$MONPOS" \
 	    -v MONSIZ="$MONSIZ" \
 	    -v MONOPPOSITEPOS="$MONOPPOSITEPOS" \
 	    -v MONOPPOSITESIZ="$MONOPPOSITESIZ" \
 	    '
-	function pos(s) {
-		split(s, field)
-		return field[1]
+	function abs(n) {
+		if (n < 0)
+			return -n;
+		return n;
 	}
-	function sort(array, len, haschanged, tmp, i) {
-		haschanged = 1
-		while ( haschanged == 1 )
-		{
-			haschanged = 0
-			for (i = 1; i <= len - 1; i++)
-			{
-				if (pos(array[i]) '$OP' pos(array[i+1]))
-				{
-					tmp = array[i]
-					array[i] = array[i + 1]
-					array[i + 1] = tmp
-					haschanged = 1
-				}
-			}
-		}
+	function clientcmp(clia, clib) {
+		if (length(clib) == 0)
+			return 1
+		split(clia, a)
+		split(clib, b)
+		if (a[2] == ALIGN && b[2] != ALIGN)
+			return 1
+		if (b[1] '$OP' a[1])
+			return 1
+		if (a[1] == b[1] && abs(a[2] - ALIGN) < abs(b[2] - ALIGN))
+				return 1
+		return 0
 	}
 	BEGIN {
-		iequal = 1
-		idiff = 1
+		win=""
 	}
 	(MONPOS <= $1) &&
 	($1 <= MONPOS + MONSIZ) &&
 	(MONOPPOSITEPOS <= $2) &&
 	($2 <= MONOPPOSITEPOS + MONOPPOSITESIZ) &&
-	($1 '$OP' POS) {
-		if ($2 == ALIGN) {
-			equal[iequal++] = $0
-		} else {
-			diff[idiff++] = $0
-		}
+	($1 '$OP' FOCUSPOS) {
+		if (clientcmp($0, win))
+			win = $0
 	}
 	END {
-		iequal--
-		idiff--
-		if (iequal > 0) {
-			sort(equal, iequal)
-			split(equal[1], field)
-		} else {
-			sort(diff, idiff)
-			split(diff[1], field)
-		}
+		split(win, field)
 		print field[3]
 	}
 	'
