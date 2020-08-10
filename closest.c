@@ -252,43 +252,35 @@ error:
 	errx(1, "could not get list of clients");
 }
 
-/* compare two clients */
+/* return 1 if a is closer to focused than b, 0 otherwise */
 static int
 clientcmp(struct Client *a, struct Client *b)
 {
 	if (b == NULL)
-		return -1;
+		return 1;
 	switch (direction) {
 	case Left: case Right:
 		if (a->y == focused.y && b->y != focused.y)
-			return -1;
-		if (a->y != focused.y && b->y == focused.y)
-			return +1;
+			return 1;
 		if (a->x > b->x + b->w)
-			return (direction == Left) ? -1 : +1;
+			return (direction == Left) ? 1 : 0;
 		if (a->x + a->w < b->x)
-			return (direction == Left) ? +1 : -1;
+			return (direction == Left) ? 0 : 1;
 		if (a->x == b->x) {
 			if (abs(a->y - focused.y) < abs(b->y - focused.y))
-				return -1;
-			if (abs(a->y - focused.y) > abs(b->y - focused.y))
-				return +1;
+				return 1;
 		}
 		break;
 	case Up: case Down:
 		if (a->x == focused.x && b->x != focused.x)
-			return -1;
-		if (a->x != focused.x && b->x == focused.x)
-			return +1;
+			return 1;
 		if (a->y > b->y + b->h)
-			return (direction == Up) ? -1 : +1;
+			return (direction == Up) ? 1 : 0;
 		if (a->y + a->h < b->y)
-			return (direction == Up) ? +1 : -1;
+			return (direction == Up) ? 0 : 1;
 		if (a->y == b->y) {
 			if (abs(a->x - focused.x) < abs(b->x - focused.x))
-				return -1;
-			if (abs(a->x - focused.x) > abs(b->x - focused.x))
-				return +1;
+				return 1;
 		}
 		break;
 	}
@@ -332,7 +324,7 @@ getwintofocus(struct Client *clients, unsigned long nclients)
 
 	/* get array of clients in the direction to focus */
 	for (i = 0; i < nclients; i++)
-		if (clientcheck(&clients[i]) && clientcmp(&clients[i], tofocus) < 0)
+		if (clientcheck(&clients[i]) && clientcmp(&clients[i], tofocus))
 			tofocus = &clients[i];
 	if (tofocus)
 		retval = tofocus->win;
