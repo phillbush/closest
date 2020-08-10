@@ -262,26 +262,22 @@ clientcmp(struct Client *a, struct Client *b)
 	case Left: case Right:
 		if (a->y == focused.y && b->y != focused.y)
 			return 1;
-		if (a->x > b->x + b->w)
-			return (direction == Left) ? 1 : 0;
-		if (a->x + a->w < b->x)
-			return (direction == Left) ? 0 : 1;
-		if (a->x == b->x) {
-			if (abs(a->y - focused.y) < abs(b->y - focused.y))
-				return 1;
-		}
+		if (a->x > b->x + b->w && direction == Left)
+			return 1;
+		if (a->x + a->w < b->x && direction == Right)
+			return 1;
+		if (a->x == b->x && abs(a->y - focused.y) < abs(b->y - focused.y))
+			return 1;
 		break;
 	case Up: case Down:
 		if (a->x == focused.x && b->x != focused.x)
 			return 1;
-		if (a->y > b->y + b->h)
-			return (direction == Up) ? 1 : 0;
-		if (a->y + a->h < b->y)
-			return (direction == Up) ? 0 : 1;
-		if (a->y == b->y) {
-			if (abs(a->x - focused.x) < abs(b->x - focused.x))
-				return 1;
-		}
+		if (a->y > b->y + b->h && direction == Up)
+			return 1;
+		if (a->y + a->h < b->y && direction == Down)
+			return 1;
+		if (a->y == b->y && abs(a->x - focused.x) < abs(b->x - focused.x))
+			return 1;
 		break;
 	}
 	return 0;
