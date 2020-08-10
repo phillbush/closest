@@ -5,7 +5,7 @@
 What is the difference between this closest and [wmutils closest](https://github.com/wmutils/contrib/blob/master/closest.sh)?
 
 * This **closest** implementation gives preference to windows aligned with
-  the focused window, this is useful for focusing a tiled window.
+  the focused window, this is useful for changing focus between tiled windows.
 * This **closest** focus only windows visible in the current monitor.
 * This **closest** uses ewmh hints and client messages by default.
 * This **closest** is faster: everything is self-contained in a single .c file.

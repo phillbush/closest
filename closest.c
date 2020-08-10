@@ -25,13 +25,13 @@ struct Client {
 };
 
 /* Function declarations */
-static int checksupportewmh(void);
-static enum Direction getdirection(const char *s);
-static struct Client getfocusclient(void);
-static struct Monitor getmonitor(void);
+static void setdirection(const char *s);
+static void setsupportewmh(void);
+static void setfocusclient(void);
+static void setmonitor(void);
 static struct Client *getclients(unsigned long *len);
-static int clientcmp(const void *p, const void *q);
-static Window getwintofocus(struct Monitor *, struct Client *, unsigned long);
+static int clientcmp(struct Client *a, struct Client *b);
+static Window getwintofocus(struct Client *, unsigned long);
 static void focuswin(Window win);
 static void usage(void);
 
@@ -42,23 +42,21 @@ static Window root;
 static Atom netclientlist;
 static Atom netactivewindow;
 static Atom netsupported;
-static enum Direction dir;         /* direction to focus */
-static struct Client focused;      /* client currently focused */
-static int supportewmh = 0;
+static enum Direction direction;/* direction to focus */
+struct Monitor mon;             /* monitor where the focused client is in */
+static struct Client focused;   /* client currently focused */
+static int supportewmh = 0;     /* whether wm support _NET_ACTIVE_WINDOW */
 
 /* focus the closest window in a given direction */
 int
 main(int argc, char *argv[])
 {
 	struct Client *clients;     /* list of clients */
-	struct Monitor mon;         /* monitor where the focused client is in */
-	Window tofocus;             /* window to be focused */
 	unsigned long nclients;     /* number of clients found */
+	Window tofocus;             /* window to be focused */
 
 	if (argc != 2)
 		usage();
-
-	dir = getdirection(argv[1]);
 
 	if ((dpy = XOpenDisplay(NULL)) == NULL)
 		errx(1, "could not open display");
@@ -68,12 +66,15 @@ main(int argc, char *argv[])
 	netactivewindow = XInternAtom(dpy, "_NET_ACTIVE_WINDOW", False);
 	netsupported = XInternAtom(dpy, "_NET_SUPPORTED", False);
 
-	supportewmh = checksupportewmh();
+	/* set global variables */
+	setdirection(argv[1]);
+	setsupportewmh();
+	setfocusclient();
+	setmonitor();
 
-	focused = getfocusclient();
-	mon = getmonitor();
+	/* get clients and find the one to be focused */
 	clients = getclients(&nclients);
-	tofocus = getwintofocus(&mon, clients, nclients);
+	tofocus = getwintofocus(clients, nclients);
 	free(clients);
 	if (tofocus != None)
 		focuswin(tofocus);
@@ -83,10 +84,9 @@ main(int argc, char *argv[])
 }
 
 /* check whether window manager supports EWMH _NET_ACTIVE_WINDOW hint */
-static int
-checksupportewmh(void)
+static void
+setsupportewmh(void)
 {
-	int retval = 0;
 	unsigned char *p = NULL;
 	unsigned long len, i;
 	Atom *atoms;
@@ -100,37 +100,34 @@ checksupportewmh(void)
 		atoms = (Atom *)p;
 		for (i = 0; i < len; i++) {
 			if (atoms[i] == netactivewindow) {
-				retval = 1;
+				supportewmh = 1;
 				break;
 			}
 		}
 		XFree(p);
 	}
- 
-	return retval;
 }
 
 /* get direction from s */
-static enum Direction
-getdirection(const char *s)
+static void
+setdirection(const char *s)
 {
 	if (strcasecmp(s, "left") == 0)
-		return Left;
-	if (strcasecmp(s, "right") == 0)
-		return Right;
-	if (strcasecmp(s, "up") == 0)
-		return Up;
-	if (strcasecmp(s, "down") == 0)
-		return Down;
-
-	errx(1, "unknown direction %s", s);
+		direction = Left;
+	else if (strcasecmp(s, "right") == 0)
+		direction = Right;
+	else if (strcasecmp(s, "up") == 0)
+		direction = Up;
+	else if (strcasecmp(s, "down") == 0)
+		direction = Down;
+	else
+		errx(1, "unknown direction %s", s);
 }
 
 /* get the focused client */
-static struct Client
-getfocusclient(void)
+static void
+setfocusclient(void)
 {
-	struct Client client;
 	XWindowAttributes wa;
 	Window win, focuswin = None, parentwin = None;
 	Atom da;            /* dummy variable */
@@ -168,23 +165,22 @@ getfocusclient(void)
 	if (!XGetWindowAttributes(dpy, focuswin, &wa))
 		goto error;
 
-	client.win = focuswin;
-	client.x = wa.x;
-	client.y = wa.y;
-	client.w = wa.width;
-	client.h = wa.height;
+	focused.win = focuswin;
+	focused.x = wa.x;
+	focused.y = wa.y;
+	focused.w = wa.width;
+	focused.h = wa.height;
 
-	return client;
+	return;
 
 error:
 	errx(1, "could not get focused client");
 }
 
 /* get geometry of monitor where focused is in */
-static struct Monitor
-getmonitor(void)
+static void
+setmonitor(void)
 {
-	struct Monitor mon;
 	XineramaScreenInfo *info = NULL;
 	int nmons;
 	int x, y, i;
@@ -199,21 +195,15 @@ getmonitor(void)
 				mon.y = info[i].y_org;
 				mon.w = info[i].width;
 				mon.h = info[i].height;
-
-				XFree(info);
-
-				return mon;
 			}
 		}
 	}
-
-	mon.x = mon.y = 0;
-	mon.w = DisplayWidth(dpy, screen);
-	mon.h = DisplayHeight(dpy, screen);
-
+	if (mon.w == 0) {
+		mon.x = mon.y = 0;
+		mon.w = DisplayWidth(dpy, screen);
+		mon.h = DisplayHeight(dpy, screen);
+	}
 	XFree(info);
-
-	return mon;
 }
 
 /* get clients */
@@ -264,26 +254,26 @@ error:
 
 /* compare two clients */
 static int
-clientcmp(const void *p, const void *q)
+clientcmp(struct Client *a, struct Client *b)
 {
-	struct Client *a, *b;
-	a = (struct Client *)p;
-	b = (struct Client *)q;
-
-	switch (dir) {
+	if (b == NULL)
+		return -1;
+	switch (direction) {
 	case Left: case Right:
 		if (a->y == focused.y && b->y != focused.y)
 			return -1;
 		if (a->y != focused.y && b->y == focused.y)
 			return +1;
 		if (a->x > b->x + b->w)
-			return (dir == Left) ? -1 : +1;
+			return (direction == Left) ? -1 : +1;
 		if (a->x + a->w < b->x)
-			return (dir == Left) ? +1 : -1;
-		if (abs(a->y - focused.y) < abs(b->y - focused.y))
-			return -1;
-		if (abs(a->y - focused.y) > abs(b->y - focused.y))
-			return +1;
+			return (direction == Left) ? +1 : -1;
+		if (a->x == b->x) {
+			if (abs(a->y - focused.y) < abs(b->y - focused.y))
+				return -1;
+			if (abs(a->y - focused.y) > abs(b->y - focused.y))
+				return +1;
+		}
 		break;
 	case Up: case Down:
 		if (a->x == focused.x && b->x != focused.x)
@@ -291,71 +281,61 @@ clientcmp(const void *p, const void *q)
 		if (a->x != focused.x && b->x == focused.x)
 			return +1;
 		if (a->y > b->y + b->h)
-			return (dir == Up) ? -1 : +1;
+			return (direction == Up) ? -1 : +1;
 		if (a->y + a->h < b->y)
-			return (dir == Up) ? +1 : -1;
-		if (abs(a->x - focused.x) < abs(b->x - focused.x))
-			return -1;
-		if (abs(a->x - focused.x) > abs(b->x - focused.x))
-			return +1;
+			return (direction == Up) ? +1 : -1;
+		if (a->y == b->y) {
+			if (abs(a->x - focused.x) < abs(b->x - focused.x))
+				return -1;
+			if (abs(a->x - focused.x) > abs(b->x - focused.x))
+				return +1;
+		}
 		break;
 	}
+	return 0;
+}
 
+/* check whether client c is in the same monitor than focused and in the correct direction */
+static int
+clientcheck(const struct Client *c)
+{
+	if (mon.x <= c->x && c->x <= mon.x + mon.w && mon.y <= c->y && c->y <= mon.y + mon.h) {
+		switch (direction) {
+		case Left:
+			if (c->x < focused.x)
+				return 1;
+			break;
+		case Right:
+			if (c->x > focused.x)
+				return 1;
+			break;
+		case Up:
+			if (c->y < focused.y)
+				return 1;
+			break;
+		case Down:
+			if (c->y > focused.y)
+				return 1;
+			break;
+		}
+	}
 	return 0;
 }
 
 /* get window to be focused */
 static Window
-getwintofocus(struct Monitor *mon, struct Client *clients, unsigned long nclients)
+getwintofocus(struct Client *clients, unsigned long nclients)
 {
 	Window retval = None;
-	struct Client *array;
-	size_t arraylen = 0;
+	struct Client *tofocus = NULL;
 	size_t i;
 
 	/* get array of clients in the direction to focus */
-	array = calloc(nclients, sizeof *array);
-	for (i = 0; i < nclients; i++) {
-		if (mon->x <= clients[i].x && clients[i].x <= mon->x + mon->w &&
-			mon->y <= clients[i].y && clients[i].y <= mon->y + mon->h) {
-			switch (dir) {
-			case Left:
-				if (clients[i].x < focused.x) {
-					memcpy(array+arraylen, clients+i, sizeof *array);
-					arraylen++;
-				}
-				break;
-			case Right:
-				if (clients[i].x > focused.x) {
-					memcpy(array+arraylen, clients+i, sizeof *array);
-					arraylen++;
-				}
-				break;
-			case Up:
-				if (clients[i].y < focused.y) {
-					memcpy(array+arraylen, clients+i, sizeof *array);
-					arraylen++;
-				}
-				break;
-			case Down:
-				if (clients[i].y > focused.y) {
-					memcpy(array+arraylen, clients+i, sizeof *array);
-					arraylen++;
-				}
-				break;
-			}
-		}
-	}
-
-	/* sort array of clients from the closest to the currently focused client
-	 * to the farthest */
-	if (arraylen) {
-		qsort(array, arraylen, sizeof *array, clientcmp);
-		retval = array[0].win;
-	}
-
-	free(array);
-
+	for (i = 0; i < nclients; i++)
+		if (clientcheck(&clients[i]) && clientcmp(&clients[i], tofocus) < 0)
+			tofocus = &clients[i];
+	if (tofocus)
+		retval = tofocus->win;
 	return retval;
 }
 
